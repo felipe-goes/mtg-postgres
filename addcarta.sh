@@ -22,29 +22,33 @@ function addcarta(){
   local descricaoCarta
   local raridadeCarta
   local tipoCarta
+  local tiposCarta=()
   local subtipoCarta
+  local subtiposCarta=()
   local combateCarta
   local custoCarta
+  local custosCarta=()
   local habilidadeCarta
+  local habilidadesCarta=()
 
   # Mostra todas os campos de uma carta.
   echo "Carta:"
   echo "Nome | Quantidade | Descrição | Raridade | Tipo | Subtipo | Combate | Custo | Habilidade"
   echo ""
 
-  # Lê campos básicos. Os dados não precisam ser tratados.
+  # Seção Nome
   while [[ "$nomeCarta" == "" ]]
   do
     read -p "Nome: " nomeCarta
     nomeCarta=$( echo "$nomeCarta" | sed "s/^ *//g" ) # Remove trailing spaces
   done
+
+  # Seção Quantidade
   while [[ ! $qtdCarta =~ (^[0-9]$)|(^[0-9][0-9]$) ]]
   do
     read -p "Quantidade: " qtdCarta
     qtdCarta=$( echo "$qtdCarta" | sed "s/^ *//g" ) # Remove trailing spaces
   done
-  read -p "Descrição: " descricaoCarta
-  descricaoCarta=$( echo "$descricaoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
 
   # Seção Raridade
   ## Obtém do banco de dados os nomes válidos de raridade e converte em um array.
@@ -84,7 +88,6 @@ function addcarta(){
     awk '{print $1 " " $2 ", " $3 ", " $4 ", " $5 ", " $6 " " $7 ", " $8 ", " $9 " " $10 ", " $11}'
   )
   echo -e "${PINK}$textoColorido${NC}"
-  local tiposCarta=()
 
   local adicionaMais="Não"
   while [[ ! " ${tipos[*]} " =~ " ${tipoCarta} " ]]
@@ -102,27 +105,84 @@ function addcarta(){
           tipoCarta=""
         fi
       else
-       echo "Você já selecionou este campo. O script vai seguir para o próximo."
+       echo "${PINK}Você já selecionou este campo. O script vai seguir para o próximo.${NC}"
       fi
     fi
   done
-  # while [[ "${#tiposCarta[@]}" == 0 ]]
-  # do
-  #   while [[ "$tipoCarta" != "" ]]
-  #   do
-  #     read -p "Tipo: " tipoCarta
-  #     if [[ "$tipoCarta" != "" ]]
-  #     then
-  #       tiposCarta+=( "$tipoCarta" )
-  #     fi
-  #   done
-  # done
-  # if [[ "$tipoCarta" == "Criatura" ]]
 
-  read -p "Subtipo: " subtipoCarta
-  read -p "Combate: " combateCarta
-  read -p "Custo: " custoCarta
-  read -p "Habilidade: " habilidadeCarta
+  if [[ "${tiposCarta[0]}" =~ "Terreno Básico" ]]
+  then
+    echo "Falta implementar aqui adicionar a carta no banco."
+  elif [[ " ${tiposCarta[*]} " =~ " Planeswalker " ]]
+  then
+    echo "Falta implementar aqui adicionar a carta no banco."
+  else
+    local confirmaCampo="Não"
+
+    # Seção Descrição
+    read -p "Esta carta possui descrição?(Sim-Não): " confirmaCampo
+    if [[ "${confirmaCampo^^}" == *"S"* ]]
+    then
+      while [[ "$descricaoCarta" == "" ]]
+      do
+        read -p "Descrição: " descricaoCarta
+        descricaoCarta=$( echo "$descricaoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
+      done
+      confirmaCampo="Não"
+    fi
+
+    # Seção Subtipo
+    # Obtém do banco de dados os nomes válidos de sutipo e converte em um array.
+    read -p "Esta carta possui subtipo?(Sim-Não): " confirmaCampo
+    if [[ "${confirmaCampo^^}" == *"S"* ]]
+    then
+      local subtipos=(
+        $(
+          psql -U postgres -d mtg -c "select nome as Subtipo from subtipo;" |
+            sed -n "3,20p" | xargs
+        )
+      )
+      textoColorido=$(
+      echo -e "Subtipos: ${subtipos[@]}" | tr " " ", "
+      )
+      echo -e "${PINK}$textoColorido${NC}"
+
+      local adicionaMais="Não"
+      while [[ ! " ${subtipos[*]} " =~ " ${subtipoCarta} " ]]
+      do
+        read -p "Subtipo: " subtipoCarta
+        subtipoCarta=$( echo "$subtipoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
+        if [[ " ${subtipos[*]} " =~ " ${subtipoCarta} " ]]
+        then
+          if [[ ! " ${subtiposCarta[*]} " =~ " ${subtipoCarta} " ]]
+          then
+            subtiposCarta+=( "$subtipoCarta" )
+            read -p "Você deseja adicionar mais algum subtipo?(Sim-Não): " adicionaMais
+            if [[ ${adicionaMais^^} == *"S"* ]]
+            then
+              subtipoCarta=""
+            fi
+          else
+           echo "Você já selecionou este campo. O script vai seguir para o próximo."
+          fi
+        fi
+      done
+      confirmaCampo="Não"
+    fi
+
+    # Seção Combate
+    if [[ " ${tiposCarta[*]} " =~ " Criatura " ]]
+    then
+      while [[ ! $combateCarta =~ (^[0-9X]$)|(^[0-9][0-9])/([0-9X]$)|([0-9][0-9]$) ]]
+      do
+        read -p "Combate (P/R): " combateCarta
+        combateCarta=$( echo "$combateCarta" | sed "s/^ *//g" ) # Remove trailing spaces
+      done
+    fi
+
+    read -p "Custo: " custoCarta
+    read -p "Habilidade: " habilidadeCarta
+  fi
   # psql -U postgres -d mtg -c "select * from carta;"
 }
 
