@@ -105,10 +105,12 @@ function addcarta(){
           tipoCarta=""
         fi
       else
-       echo "${PINK}Você já selecionou este campo. O script vai seguir para o próximo.${NC}"
+       echo -e "${PINK}Você já selecionou este campo. O script vai seguir para o próximo.${NC}"
       fi
     fi
   done
+
+  local confirmaCampo="Não"
 
   if [[ "${tiposCarta[0]}" =~ "Terreno Básico" ]]
   then
@@ -117,8 +119,6 @@ function addcarta(){
   then
     echo "Falta implementar aqui adicionar a carta no banco."
   else
-    local confirmaCampo="Não"
-
     # Seção Descrição
     read -p "Esta carta possui descrição?(Sim-Não): " confirmaCampo
     if [[ "${confirmaCampo^^}" == *"S"* ]]
@@ -163,7 +163,7 @@ function addcarta(){
               subtipoCarta=""
             fi
           else
-           echo "Você já selecionou este campo. O script vai seguir para o próximo."
+           echo -e "${PINK}Você já selecionou este campo. O script vai seguir para o próximo.${NC}"
           fi
         fi
       done
@@ -173,14 +173,31 @@ function addcarta(){
     # Seção Combate
     if [[ " ${tiposCarta[*]} " =~ " Criatura " ]]
     then
-      while [[ ! $combateCarta =~ (^[0-9X]$)|(^[0-9][0-9])/([0-9X]$)|([0-9][0-9]$) ]]
+      while [[ ! $combateCarta =~ ((^[0-9X])|(^[0-9][0-9]))[/](([0-9X]$)|([0-9][0-9]$)) ]]
       do
         read -p "Combate (P/R): " combateCarta
         combateCarta=$( echo "$combateCarta" | sed "s/^ *//g" ) # Remove trailing spaces
       done
     fi
 
-    read -p "Custo: " custoCarta
+    # Seção Custo
+    echo -e "${PINK}Custos: Floresta, Pântano, Ilha, Planície, Montanha, Incolor${NC}"
+    while [[ ! $custoCarta =~ (^[0-9X])[/]([0-9X])[/]([0-9X])[/][0-9X][/][0-9X][/][0-9X$] ]]
+    do
+      read -p "Custo definido (#F/#P/#I/#Pl/#M/#In): " custoCarta
+      custoCarta=$( echo "$custoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
+      if [[ $custoCarta =~ (^[0-9X])[/]([0-9X])[/]([0-9X])[/][0-9X][/][0-9X$][/][0-9X$] ]]
+      then
+        custosCarta+=( "$custoCarta" )
+        read -p "Você deseja adicionar mais algum custo?(Sim-Não): " adicionaMais
+        if [[ ${adicionaMais^^} == *"S"* ]]
+        then
+          custoCarta=""
+        fi
+      fi
+    done
+
+    # Seção Habilidade
     read -p "Habilidade: " habilidadeCarta
   fi
   # psql -U postgres -d mtg -c "select * from carta;"
