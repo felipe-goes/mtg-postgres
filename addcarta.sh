@@ -25,14 +25,15 @@ function addcarta(){
   local PINK='\033[0;35m'
   local NC='\033[0m'
 
+  # Memórias locais referentes às tabelas do banco de dados
   local nomeCarta
   local qtdCarta
   local descricaoCarta
   local raridadeCarta
-  declare -a local raridades
   local tipoCarta
   declare -a local tiposCarta
   local subtipoCarta
+  declare -a local subtipos
   declare -a local subtiposCarta
   local combateCarta
   local custoCarta
@@ -40,15 +41,15 @@ function addcarta(){
   local habilidadeCarta
   declare -a local habilidadesCarta
 
+  # Memórias de uso geral
   local validacao="falso"
   local query=""
   local textoColorido=""
   local adicionaMais="Não"
   local confirmaCampo="Não"
 
-  # Mostra todas os campos de uma carta.
-  echo "Carta:"
-  echo "Nome | Quantidade | Raridade | Tipo | Subtipo | Descrição | Combate | Custo | Habilidade"
+  # Mostra todos os campos de uma carta.
+  echo -e "${PINK}Nome | Quantidade | Raridade | Tipo | Subtipo | Descrição | Combate | Custo | Habilidade${NC}"
   echo ""
 
   # Seção Nome
@@ -68,7 +69,6 @@ function addcarta(){
   # Seção Raridade
   ## Obtém do banco de dados os nomes válidos de raridade e converte em um array.
   query=$( selectQuery "raridade" "6" )
-
   readarray -d . -t raridades <<< "$query"
   for i in "${!raridades[@]}"
   do
@@ -77,8 +77,8 @@ function addcarta(){
 
   ## Exibe para o usuário todos os nomes válidos de raridade numa cor de destaque.
   textoColorido=$(
-  echo "Raridades: ${raridades[@]}" |
-    awk '{print $1 " " $2 ", " $3 ", " $4 ", " $5 " " $6}'
+    echo "Raridades: ${raridades[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}" |
+      sed "s/Mítico, Raro,/Mítico Raro/g"
   )
   echo -e "${PINK}$textoColorido${NC}"
 
@@ -99,21 +99,24 @@ function addcarta(){
   validacao="falso"
 
   # Seção Tipo
-  # Obtém do banco de dados os nomes válidos de tipo e converte em um array.
+  ## Obtém do banco de dados os nomes válidos de tipo e converte em um array.
   query=$( selectQuery "tipo" "10" )
-
   readarray -d . -t tipos <<< "$query"
   for i in "${!tipos[@]}"
   do
     tipos[$i]=$( echo "${tipos[$i]}" | sed "s/^ *//g" ) # Remove trailing spaces
   done
 
+  ## Exibe para o usuário todos os nomes válidos de tipos numa cor de destaque.
   textoColorido=$(
-  echo -e "Tipos: ${tipos[@]}" |
-    awk '{print $1 " " $2 ", " $3 ", " $4 ", " $5 ", " $6 " " $7 ", " $8 ", " $9 " " $10 ", " $11}'
+    echo -e "Tipos: ${tipos[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}" |
+      sed "s/Mágica, Instantânea/Mágica Instantânea/g" |
+      sed "s/Terreno, Básico/Terreno Básico/g" |
+      sed "s/Terreno,/Terreno/g"
   )
   echo -e "${PINK}$textoColorido${NC}"
 
+  ## Lê o input do usuário permitindo apenas uma entrada válida.
   while [[ "$validacao" == "falso" ]]
   do
     read -p "Tipo: " tipoCarta
@@ -140,6 +143,7 @@ function addcarta(){
           fi
         else
           echo -e "${PINK}Você já selecionou este tipo. O script vai seguir para o próximo campo.${NC}"
+          validacao="verdadeiro" # Força saída
         fi
         break
       fi
@@ -156,55 +160,74 @@ function addcarta(){
     echo "Falta implementar aqui adicionar a carta no banco."
   else
     # Seção Subtipo
-    # Obtém do banco de dados os nomes válidos de sutipo e converte em um array.
+    ## Confirma se esta carta possui subtipo
     read -p "Esta carta possui subtipo?(Sim-Não): " confirmaCampo
-    if [[ "${confirmaCampo^^}" == *"S"* ]]
+    if [[ "${confirmaCampo^}" =~ ^S ]]
     then
-      local subtipos=(
-        $(
-          psql -U postgres -d mtg -c "select nome as Subtipo from subtipo;" |
-            sed -n "3,20p" | xargs
-        )
-      )
+      ## Obtém do banco de dados os nomes válidos de sutipo e converte em um array.
+      query=$( selectQuery "subtipo" "20" )
+      readarray -d . -t subtipos <<< "$query"
+      for i in "${!subtipos[@]}"
+      do
+        subtipos[$i]=$( echo "${subtipos[$i]}" | sed "s/^ *//g" ) # Remove trailing spaces
+      done
+
+      ## Exibe para o usuário todos os nomes válidos de subtipos numa cor de destaque.
       textoColorido=$(
-      echo -e "Subtipos: ${subtipos[@]}" | tr " " ", "
+        echo "Subtipos: ${subtipos[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}" |
+          sed "s/Guerreiro,/Guerreio/g"
       )
       echo -e "${PINK}$textoColorido${NC}"
 
-      while [[ ! " ${subtipos[*]} " =~ " ${subtipoCarta} " ]]
+      ## Faz a validação
+      while [[ "$validacao" == "falso" ]]
       do
         read -p "Subtipo: " subtipoCarta
         subtipoCarta=$( echo "$subtipoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
-        if [[ " ${subtipos[*]} " =~ " ${subtipoCarta} " ]]
-        then
-          if [[ ! " ${subtiposCarta[*]} " =~ " ${subtipoCarta} " ]]
+        for item in "${subtipos[@]}"
+        do
+          if [[ "$subtipoCarta" == "$item" ]]
           then
-            subtiposCarta+=( "$subtipoCarta" )
-            read -p "Você deseja adicionar mais algum subtipo?(Sim-Não): " adicionaMais
-            if [[ ${adicionaMais^^} == *"S"* ]]
+            validacao="verdadeiro"
+            for i in "${subtiposCarta[@]}"
+            do
+              if [[ "$i" == "$subtipoCarta" ]]
+              then
+                validacao="falso"
+              fi
+            done
+            if [[ "$validacao" == "verdadeiro" ]]
             then
-              subtipoCarta=""
+              subtiposCarta+=( "$subtipoCarta" )
+              read -p "Você deseja adicionar mais algum tipo?(Sim-Não): " adicionaMais
+              if [[ "${adicionaMais^}" =~ ^S ]]
+              then
+                validacao="falso"
+              fi
+            else
+              echo -e "${PINK}Você já selecionou este tipo. O script vai seguir para o próximo campo.${NC}"
+              validacao="verdadeiro" # Força saída
             fi
-          else
-           echo -e "${PINK}Você já selecionou este campo. O script vai seguir para o próximo.${NC}"
+            break
           fi
-        fi
+        done
       done
-      confirmaCampo="Não"
     fi
+    validacao="falso"
     adicionaMais="Não"
+    confirmaCampo="Não"
 
     # Seção Descrição
     read -p "Esta carta possui descrição?(Sim-Não): " confirmaCampo
-    if [[ "${confirmaCampo^^}" == *"S"* ]]
+    if [[ "${confirmaCampo^}" =~ ^S ]]
     then
       while [[ "$descricaoCarta" == "" ]]
       do
         read -p "Descrição: " descricaoCarta
         descricaoCarta=$( echo "$descricaoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
       done
-      confirmaCampo="Não"
     fi
+    confirmaCampo="Não"
 
     # Seção Combate
     if [[ " ${tiposCarta[*]} " =~ " Criatura " ]]
@@ -226,7 +249,7 @@ function addcarta(){
       then
         custosCarta+=( "$custoCarta" )
         read -p "Você deseja adicionar mais algum custo?(Sim-Não): " adicionaMais
-        if [[ ${adicionaMais^^} == *"S"* ]]
+        if [[ ${adicionaMais^} =~ ^S ]]
         then
           custoCarta=""
         fi
@@ -243,8 +266,7 @@ function addcarta(){
     )
 
     textoColorido=$(
-    echo -e "Habilidades: ${habilidades[@]}" |
-      awk '{print $1 " " $2 " " $3 " " $4 ", " $5 " " $6 ", " $7 ", " $8 ", " $9 ", " $10 ", " $11 ", " $12 " " $13 ", " $14 ", " $15 ", " $16 ", " $17 " " $18 " " $19 " " $20}'
+      echo -e "Habilidades: ${habilidades[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}"
     )
     echo -e "${PINK}$textoColorido${NC}"
 
@@ -255,6 +277,20 @@ function addcarta(){
     done
     read -p "Habilidade: " habilidadeCarta
   fi
+
+  # echo "Resultado do script"
+  # echo ""
+
+  # echo "$nomeCarta"
+  # echo "$qtdCarta"
+  # echo "$descricaoCarta"
+  # echo "$raridadeCarta"
+  # echo "${tiposCarta[@]}"
+  # echo "${subtiposCarta[@]}"
+  # echo "$combateCarta"
+  # echo "${custosCarta[@]}"
+  # echo "${habilidadesCarta[@]}"
+
   # psql -U postgres -d mtg -c "select * from carta;"
 }
 
