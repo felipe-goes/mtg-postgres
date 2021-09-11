@@ -11,6 +11,10 @@ set -e
 # Purple       0;35     Light Purple  1;35
 # Cyan         0;36     Light Cyan    1;36
 # Light Gray   0;37     White         1;37
+# Opções de cores. NC serve para fechar bloco de cor.
+PINK='\033[0;35m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
 function selectQuery(){
   local tabela=$1
@@ -18,6 +22,15 @@ function selectQuery(){
 
   psql -U postgres -d mtg -c "select nome as ${tabela^} from ${tabela};" |
     sed -n "3,${ultimoElemento}p" | sed "s/$/./g" | xargs
+}
+
+function confirm(){
+  local texto=$1
+  local confirmaCampo
+
+  read -p "$(echo -e ${YELLOW}"Esta carta possui $texto?(Sim-Não): "${NC})" confirmaCampo
+
+  echo "$confirmaCampo"
 }
 
 function validateArray(){
@@ -50,13 +63,13 @@ function validateArray(){
         if [[ "$validacao" == "verdadeiro" ]]
         then
           outputArray+=( "$inputCarta" )
-          read -p "Você deseja adicionar mais algum ${mensagemLeitura}?(Sim-Não): " adicionaMais
+          read -p "$(echo -e ${YELLOW}"Você deseja adicionar mais algum ${mensagemLeitura}?(Sim-Não): "${NC})" adicionaMais
           if [[ "${adicionaMais^}" =~ ^S ]]
           then
             validacao="falso"
           fi
         else
-          echo -e "${PINK}Você já selecionou este ${mensagemLeitura}. O script seguirá para o próximo campo.${NC}"
+          echo -e "${PINK}Você já adicionou este ${mensagemLeitura}. O script seguirá para o próximo campo.${NC}"
           validacao="verdadeiro" # Força saída
         fi
         break
@@ -69,30 +82,24 @@ function validateArray(){
 }
 
 function addcarta(){
-  # Opções de cores. NC serve para fechar bloco de cor.
-  local PINK='\033[0;35m'
-  local NC='\033[0m'
-
-  # Memórias locais referentes às tabelas do banco de dados
+  # Memórias referentes às tabelas do banco de dados
   local nomeCarta
   local qtdCarta
   local descricaoCarta
   local raridadeCarta
-  local tipoCarta
+  local combateCarta
+  declare -a local tipos
   declare -a local tiposCarta
-  local subtipoCarta
   declare -a local subtipos
   declare -a local subtiposCarta
-  local combateCarta
   local custoCarta
   declare -a local custosCarta
-  local habilidadeCarta
   declare -a local habilidadesCarta
 
   # Memórias de uso geral
-  local validacao="falso"
   local query=""
   local textoColorido=""
+  local validacao="falso"
   local confirmaCampo="Não"
 
   # Mostra todos os campos de uma carta.
@@ -165,6 +172,36 @@ function addcarta(){
 
   tiposCarta=( $(validateArray "tipo" "${tipos[@]}") )
 
+  # Seção Custo
+  echo -e "${PINK}Custos: Floresta, Pântano, Ilha, Planície, Montanha, Incolor${NC}"
+  while [[ "$validacao" == "falso" ]]
+  do
+    read -p "Custo (#F/#P/#I/#Pl/#M/#In): " custoCarta
+    custoCarta=$( echo "$custoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
+
+    if [[ $custoCarta =~ (^[0-9X])[/]([0-9X])[/]([0-9X])[/][0-9X][/][0-9X$][/][0-9X$] ]]
+    then
+      if [[ ! " ${custosCarta[*]} " =~ " $custoCarta " ]]
+      then
+        custosCarta+=( "$custoCarta" )
+
+        read -p "$( echo -e ${YELLOW}"Você deseja adicionar mais algum custo?(Sim-Não): "${NC})" adicionaMais
+        if [[ ${adicionaMais^} =~ ^S ]]
+        then
+          validacao="falso"
+        else
+          validacao="verdadeiro"
+        fi
+      else
+        echo -e "${PINK}Você já adicionou este custo. O script seguirá para o próximo campo.${NC}"
+        validacao="verdadeiro" # Força saída
+      fi
+    fi
+  done
+  adicionaMais="Não"
+  validacao="falso"
+
+  # Campos que não são obrigatórios para todas as cartas
   if [[ "${tiposCarta[0]}" =~ "Terreno Básico" ]]
   then
     echo "Falta implementar aqui adicionar a carta no banco."
@@ -174,7 +211,7 @@ function addcarta(){
   else
     # Seção Subtipo
     ## Confirma se esta carta possui subtipo
-    read -p "Esta carta possui subtipo?(Sim-Não): " confirmaCampo
+    confirmaCampo=$( confirm "subtipo" )
     if [[ "${confirmaCampo^}" =~ ^S ]]
     then
       ## Obtém do banco de dados os nomes válidos de sutipo e converte em um array.
@@ -197,7 +234,7 @@ function addcarta(){
     confirmaCampo="Não"
 
     # Seção Descrição
-    read -p "Esta carta possui descrição?(Sim-Não): " confirmaCampo
+    confirmaCampo=$( confirm "descrição" )
     if [[ "${confirmaCampo^}" =~ ^S ]]
     then
       while [[ "$descricaoCarta" == "" ]]
@@ -211,65 +248,53 @@ function addcarta(){
     # Seção Combate
     if [[ " ${tiposCarta[*]} " =~ " Criatura " ]]
     then
+      validacao="verdadeiro"
+    else
+      confirmaCampo=$( confirm "poder e resisteância" )
+      if [[ "${confirmaCampo^}" =~ ^S ]]
+      then
+        validacao="verdadeiro"
+      fi
+    fi
+
+    if [[ "$validacao" == "verdadeiro" ]]
+    then
       while [[ ! $combateCarta =~ ((^[0-9X])|(^[0-9][0-9]))[/](([0-9X]$)|([0-9][0-9]$)) ]]
       do
-        read -p "Combate (P/R): " combateCarta
+        read -p "Poder/Resistência: " combateCarta
         combateCarta=$( echo "$combateCarta" | sed "s/^ *//g" ) # Remove trailing spaces
       done
     fi
-
-    # Seção Custo
-    echo -e "${PINK}Custos: Floresta, Pântano, Ilha, Planície, Montanha, Incolor${NC}"
-    while [[ ! $custoCarta =~ (^[0-9X])[/]([0-9X])[/]([0-9X])[/][0-9X][/][0-9X][/][0-9X$] ]]
-    do
-      read -p "Custo definido (#F/#P/#I/#Pl/#M/#In): " custoCarta
-      custoCarta=$( echo "$custoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
-      if [[ $custoCarta =~ (^[0-9X])[/]([0-9X])[/]([0-9X])[/][0-9X][/][0-9X$][/][0-9X$] ]]
-      then
-        custosCarta+=( "$custoCarta" )
-        read -p "Você deseja adicionar mais algum custo?(Sim-Não): " adicionaMais
-        if [[ ${adicionaMais^} =~ ^S ]]
-        then
-          custoCarta=""
-        fi
-      fi
-    done
-    adicionaMais="Não"
+    confirmaCampo="Não"
+    validacao="falso"
 
     # Seção Habilidade
-    ## Obtém do banco de dados os nomes válidos de habilidade e converte em um array.
-    query=$( selectQuery "habilidade" "14" )
-    readarray -d . -t habilidades <<< "$query"
-    for i in "${!habilidades[@]}"
-    do
-      habilidades[$i]=$( echo "${habilidades[$i]}" | sed "s/^ *//g" ) # Remove trailing spaces
-    done
+    read -p "$(echo -e ${YELLOW}"Esta carta possui habilidade?(Sim-Não): "${NC})" confirmaCampo
+    if [[ "${confirmaCampo^}" =~ ^S ]]
+    then
+      ## Obtém do banco de dados os nomes válidos de habilidade e converte em um array.
+      query=$( selectQuery "habilidade" "14" )
+      readarray -d . -t habilidades <<< "$query"
+      for i in "${!habilidades[@]}"
+      do
+        habilidades[$i]=$( echo "${habilidades[$i]}" | sed "s/^ *//g" ) # Remove trailing spaces
+      done
 
-    ## Exibe para o usuário todos os nomes válidos de habilidade numa cor de destaque.
-    textoColorido=$(
-      echo "Habilidades: ${habilidades[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}" |
-        sed "s/Resistência, a, magia/Resistência a magia/g" |
-        sed "s/Toque, Mortífero/Toque Mortífero/g" |
-        sed "s/Golpe, Duplo/Golpe Duplo/g" |
-        sed "s/Vínculo, com, a, Vida,/Vínculo com a Vida/g"
-    )
-    echo -e "${PINK}$textoColorido${NC}"
+      ## Exibe para o usuário todos os nomes válidos de habilidade numa cor de destaque.
+      textoColorido=$(
+        echo "Habilidades: ${habilidades[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}" |
+          sed "s/Resistência, a, magia/Resistência a magia/g" |
+          sed "s/Toque, Mortífero/Toque Mortífero/g" |
+          sed "s/Golpe, Duplo/Golpe Duplo/g" |
+          sed "s/Vínculo, com, a, Vida,/Vínculo com a Vida/g"
+      )
+      echo -e "${PINK}$textoColorido${NC}"
 
-    habilidadesCarta=( $(validateArray "habilidade" "${habilidades[@]}") )
+      habilidadesCarta=( $(validateArray "habilidade" "${habilidades[@]}") )
+    fi
+    confirmaCampo="Não"
+
   fi
-
-  # echo "Resultado do script"
-  # echo ""
-
-  # echo "$nomeCarta"
-  # echo "$qtdCarta"
-  # echo "$descricaoCarta"
-  # echo "$raridadeCarta"
-  # echo "${tiposCarta[@]}"
-  # echo "${subtiposCarta[@]}"
-  # echo "$combateCarta"
-  # echo "${custosCarta[@]}"
-  # echo "${habilidadesCarta[@]}"
 
   # psql -U postgres -d mtg -c "select * from carta;"
 }
