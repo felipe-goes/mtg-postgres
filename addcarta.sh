@@ -13,11 +13,59 @@ set -e
 # Light Gray   0;37     White         1;37
 
 function selectQuery(){
-  tabela=$1
-  ultimoElemento=$2
+  local tabela=$1
+  local ultimoElemento=$2
 
   psql -U postgres -d mtg -c "select nome as ${tabela^} from ${tabela};" |
     sed -n "3,${ultimoElemento}p" | sed "s/$/./g" | xargs
+}
+
+function validateArray(){
+  local mensagemLeitura=$1 # Mensagem que aparece para o usuário informar o valor
+  local queryArray=("$@") # Array com o resultado da query select
+
+  local inputCarta="" # Entrada do usuário sobre a informação da carta
+  local adicionaMais="Não" # Confirma se mais algum elemento é necessário
+  local validacao="falso"
+
+  declare -a local outputArray
+
+  ## Lê o input do usuário permitindo apenas uma entrada válida.
+  while [[ "$validacao" == "falso" ]]
+  do
+    read -p "${mensagemLeitura^}: " inputCarta
+    inputCarta=$( echo "$inputCarta" | sed "s/^ *//g" ) # Remove trailing spaces
+    for item in "${queryArray[@]}"
+    do
+      if [[ "$inputCarta" == "$item" ]]
+      then
+        validacao="verdadeiro"
+        for i in "${outputArray[@]}"
+        do
+          if [[ "$i" == "$inputCarta" ]]
+          then
+            validacao="falso"
+          fi
+        done
+        if [[ "$validacao" == "verdadeiro" ]]
+        then
+          outputArray+=( "$inputCarta" )
+          read -p "Você deseja adicionar mais algum ${mensagemLeitura}?(Sim-Não): " adicionaMais
+          if [[ "${adicionaMais^}" =~ ^S ]]
+          then
+            validacao="falso"
+          fi
+        else
+          echo -e "${PINK}Você já selecionou este ${mensagemLeitura}. O script seguirá para o próximo campo.${NC}"
+          validacao="verdadeiro" # Força saída
+        fi
+        break
+      fi
+    done
+  done
+
+  echo "${outputArray[@]}"
+
 }
 
 function addcarta(){
@@ -45,7 +93,6 @@ function addcarta(){
   local validacao="falso"
   local query=""
   local textoColorido=""
-  local adicionaMais="Não"
   local confirmaCampo="Não"
 
   # Mostra todos os campos de uma carta.
@@ -109,48 +156,14 @@ function addcarta(){
 
   ## Exibe para o usuário todos os nomes válidos de tipos numa cor de destaque.
   textoColorido=$(
-    echo -e "Tipos: ${tipos[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}" |
+    echo "Tipos: ${tipos[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}" |
       sed "s/Mágica, Instantânea/Mágica Instantânea/g" |
       sed "s/Terreno, Básico/Terreno Básico/g" |
       sed "s/Terreno,/Terreno/g"
   )
   echo -e "${PINK}$textoColorido${NC}"
 
-  ## Lê o input do usuário permitindo apenas uma entrada válida.
-  while [[ "$validacao" == "falso" ]]
-  do
-    read -p "Tipo: " tipoCarta
-    tipoCarta=$( echo "$tipoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
-    for item in "${tipos[@]}"
-    do
-      if [[ "$tipoCarta" == "$item" ]]
-      then
-        validacao="verdadeiro"
-        for i in "${tiposCarta[@]}"
-        do
-          if [[ "$i" == "$tipoCarta" ]]
-          then
-            validacao="falso"
-          fi
-        done
-        if [[ "$validacao" == "verdadeiro" ]]
-        then
-          tiposCarta+=( "$tipoCarta" )
-          read -p "Você deseja adicionar mais algum tipo?(Sim-Não): " adicionaMais
-          if [[ "${adicionaMais^}" =~ ^S  ]]
-          then
-            validacao="falso"
-          fi
-        else
-          echo -e "${PINK}Você já selecionou este tipo. O script vai seguir para o próximo campo.${NC}"
-          validacao="verdadeiro" # Força saída
-        fi
-        break
-      fi
-    done
-  done
-  validacao="falso"
-  adicionaMais="Não"
+  tiposCarta=( $(validateArray "tipo" "${tipos[@]}") )
 
   if [[ "${tiposCarta[0]}" =~ "Terreno Básico" ]]
   then
@@ -179,42 +192,8 @@ function addcarta(){
       )
       echo -e "${PINK}$textoColorido${NC}"
 
-      ## Faz a validação
-      while [[ "$validacao" == "falso" ]]
-      do
-        read -p "Subtipo: " subtipoCarta
-        subtipoCarta=$( echo "$subtipoCarta" | sed "s/^ *//g" ) # Remove trailing spaces
-        for item in "${subtipos[@]}"
-        do
-          if [[ "$subtipoCarta" == "$item" ]]
-          then
-            validacao="verdadeiro"
-            for i in "${subtiposCarta[@]}"
-            do
-              if [[ "$i" == "$subtipoCarta" ]]
-              then
-                validacao="falso"
-              fi
-            done
-            if [[ "$validacao" == "verdadeiro" ]]
-            then
-              subtiposCarta+=( "$subtipoCarta" )
-              read -p "Você deseja adicionar mais algum tipo?(Sim-Não): " adicionaMais
-              if [[ "${adicionaMais^}" =~ ^S ]]
-              then
-                validacao="falso"
-              fi
-            else
-              echo -e "${PINK}Você já selecionou este tipo. O script vai seguir para o próximo campo.${NC}"
-              validacao="verdadeiro" # Força saída
-            fi
-            break
-          fi
-        done
-      done
+      subtiposCarta=( $(validateArray "subtipo" "${subtipos[@]}") )
     fi
-    validacao="falso"
-    adicionaMais="Não"
     confirmaCampo="Não"
 
     # Seção Descrição
@@ -258,24 +237,25 @@ function addcarta(){
     adicionaMais="Não"
 
     # Seção Habilidade
-    local habilidades=(
-      $(
-        psql -U postgres -d mtg -c "select nome as Habilidade from habilidade;" |
-          sed -n "3,14p" | xargs
-      )
-    )
+    ## Obtém do banco de dados os nomes válidos de habilidade e converte em um array.
+    query=$( selectQuery "habilidade" "14" )
+    readarray -d . -t habilidades <<< "$query"
+    for i in "${!habilidades[@]}"
+    do
+      habilidades[$i]=$( echo "${habilidades[$i]}" | sed "s/^ *//g" ) # Remove trailing spaces
+    done
 
+    ## Exibe para o usuário todos os nomes válidos de habilidade numa cor de destaque.
     textoColorido=$(
-      echo -e "Habilidades: ${habilidades[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}"
+      echo "Habilidades: ${habilidades[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}" |
+        sed "s/Resistência, a, magia/Resistência a magia/g" |
+        sed "s/Toque, Mortífero/Toque Mortífero/g" |
+        sed "s/Golpe, Duplo/Golpe Duplo/g" |
+        sed "s/Vínculo, com, a, Vida,/Vínculo com a Vida/g"
     )
     echo -e "${PINK}$textoColorido${NC}"
 
-    while [[ ! $combateCarta =~ ((^[0-9X])|(^[0-9][0-9]))[/](([0-9X]$)|([0-9][0-9]$)) ]]
-    do
-      read -p "Combate (P/R): " combateCarta
-      combateCarta=$( echo "$combateCarta" | sed "s/^ *//g" ) # Remove trailing spaces
-    done
-    read -p "Habilidade: " habilidadeCarta
+    habilidadesCarta=( $(validateArray "habilidade" "${habilidades[@]}") )
   fi
 
   # echo "Resultado do script"
