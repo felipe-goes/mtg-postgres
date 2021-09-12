@@ -21,7 +21,9 @@ function getCombateId(){
   local poder=$( echo "$combateCarta" | sed "s/[/].*$//g" )
   local resistencia=$( echo "$combateCarta" | sed "s/^.*[/]//g" )
 
-  psql -U postgres -d mtg -c "select id from combate where poder=${poder} and resistencia=${resistencia};" | sed -n "3,3p"
+  psql -U postgres -d mtg -c "select id from combate where poder='${poder}' and resistencia='${resistencia}';" |
+    sed -n "3,3p" |
+    sed "s/^ *//g" | sed "s/ *$//g" # Remove trailing spaces
 }
 
 function selectQuery(){
@@ -178,7 +180,6 @@ function addcarta(){
   )
   echo -e "${PINK}$textoColorido${NC}"
 
-  # tiposCarta=( $(validateArray "tipo" "${tipos[@]}") )
   readarray -d . -t tiposCarta <<< $(validateArray "tipo" "${tipos[@]}")
   unset -v 'tiposCarta[-1]'
 
@@ -225,7 +226,7 @@ function addcarta(){
     if [[ "${confirmaCampo^}" =~ ^S ]]
     then
       ## Obtém do banco de dados os nomes válidos de sutipo e converte em um array.
-      query=$( selectQuery "subtipo" "20" )
+      query=$( selectQuery "subtipo" "23" )
       readarray -d . -t subtipos <<< "$query"
       for i in "${!subtipos[@]}"
       do
@@ -235,11 +236,10 @@ function addcarta(){
       ## Exibe para o usuário todos os nomes válidos de subtipos numa cor de destaque.
       textoColorido=$(
         echo "Subtipos: ${subtipos[@]}" | sed "s/ /,\ /g" | sed "0,/, /{s/, / /}" |
-          sed "s/Guerreiro,/Guerreio/g"
+          sed "s/Elefante,/Elefante/g"
       )
       echo -e "${PINK}$textoColorido${NC}"
 
-      # subtiposCarta=( $(validateArray "subtipo" "${subtipos[@]}") )
       readarray -d . -t subtiposCarta <<< $(validateArray "subtipo" "${subtipos[@]}")
       unset -v 'subtiposCarta[-1]'
     fi
@@ -285,7 +285,7 @@ function addcarta(){
     if [[ "${confirmaCampo^}" =~ ^S ]]
     then
       ## Obtém do banco de dados os nomes válidos de habilidade e converte em um array.
-      query=$( selectQuery "habilidade" "14" )
+      query=$( selectQuery "habilidade" "15" )
       readarray -d . -t habilidades <<< "$query"
       for i in "${!habilidades[@]}"
       do
@@ -298,11 +298,11 @@ function addcarta(){
           sed "s/Resistência, a, magia/Resistência a magia/g" |
           sed "s/Toque, Mortífero/Toque Mortífero/g" |
           sed "s/Golpe, Duplo/Golpe Duplo/g" |
-          sed "s/Vínculo, com, a, Vida,/Vínculo com a Vida/g"
+          sed "s/Vínculo, com, a, Vida/Vínculo com a Vida/g" |
+          sed "s/Esquadrinhar,/Esquadrinhar/g"
       )
       echo -e "${PINK}$textoColorido${NC}"
 
-      # habilidadesCarta=( $(validateArray "habilidade" "${habilidades[@]}") )
       readarray -d . -t habilidadesCarta <<< $(validateArray "habilidade" "${habilidades[@]}")
       unset -v 'habilidadesCarta[-1]'
     fi
@@ -335,12 +335,14 @@ function addcarta(){
   # Insert na tabela carta_tipo
   for i in "${!tiposCarta[@]}"
   do
+    tiposCarta[$i]=$( echo "${tiposCarta[@]}" | sed "s/^ *//g" | sed "s/ *$//g" ) # Remove trailing spaces
     psql -U postgres -d mtg -c "insert into carta_tipo (carta, tipo) values ('${nomeCarta}', '${tiposCarta[$i]}');"
   done
 
   # Insert na tabela carta_subtipo
   for i in "${!subtiposCarta[@]}"
   do
+    subtiposCarta[$i]=$( echo "${subtiposCarta[@]}" | sed "s/^ *//g" | sed "s/ *$//g" ) # Remove trailing spaces
     psql -U postgres -d mtg -c "insert into carta_subtipo (carta, subtipo) values ('${nomeCarta}', '${subtiposCarta[$i]}');"
   done
 
@@ -390,6 +392,7 @@ function addcarta(){
   # Adiciona na tabela carta_habilidade
   for i in "${!habilidadesCarta[@]}"
   do
+    habilidadesCarta[$i]=$( echo "${habilidadesCarta[@]}" | sed "s/^ *//g" | sed "s/ *$//g" ) # Remove trailing spaces
     psql -U postgres -d mtg -c "insert into carta_habilidade (carta, habilidade) values ('${nomeCarta}', '${habilidadesCarta[$i]}');"
   done
 
