@@ -327,10 +327,11 @@ function addcarta(){
     fi
   fi
 
-  # Adiciona na tabela carta_tipo
-  # Nome e Tipo
-  # local nomeCarta
-  # declare -a local tiposCarta
+  # Insert na tabela carta_tipo
+  for item in "${tiposCarta[@]}"
+  do
+    psql -u postgres -d mtg -c "insert into carta_tipo (carta, tipo) values (${nomeCarta}, ${item});"
+  done
 
   # Adiciona na tabela carta_subtipo
   # Nome e Subtipo
