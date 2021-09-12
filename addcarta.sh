@@ -16,6 +16,14 @@ PINK='\033[0;35m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+function getCombateId(){
+  local combateCarta=$1
+  local poder=$( echo "$combateCarta" | sed "s/[/].*$//g" )
+  local resistencia=$( echo "$combateCarta" | sed "s/^.*[/]//g" )
+
+  psql -U postgres -d mtg -c "select id from combate where poder=${poder} and resistencia=${resistencia};" | sed -n "3,3p"
+}
+
 function selectQuery(){
   local tabela=$1
   local ultimoElemento=$2
@@ -296,7 +304,52 @@ function addcarta(){
 
   fi
 
-  # psql -U postgres -d mtg -c "select * from carta;"
+  # psql -U postgres -d mtg -c "insert into carta (<campo>) values (<value>);"
+  # Insert na tabela carta
+  if [[ "$descricaoCarta" != "" ]]
+  then
+    if [[ "$combateCarta" != "" ]]
+    then
+      local combateId=$( getCombateId "$combateCarta" )
+
+      psql -u postgres -d mtg -c "insert into carta (quantidade, nome, raridade, descricao, combate) values (${qtdcarta}, ${nomecarta}, ${raridadecarta}, ${descricaocarta}, ${combateid});"
+    else
+      psql -u postgres -d mtg -c "insert into carta (quantidade, nome, raridade, descricao) values (${qtdcarta}, ${nomecarta}, ${raridadecarta}, ${descricaocarta});"
+    fi
+  else
+    if [[ "$combateCarta" != "" ]]
+    then
+      local combateId=$( getCombateId "$combateCarta" )
+
+      psql -u postgres -d mtg -c "insert into carta (quantidade, nome, raridade, combate) values (${qtdcarta}, ${nomecarta}, ${raridadecarta}, ${combateid});"
+    else
+      psql -u postgres -d mtg -c "insert into carta (quantidade, nome, raridade) values (${qtdcarta}, ${nomecarta}, ${raridadecarta});"
+    fi
+  fi
+
+  # Adiciona na tabela carta_tipo
+  # Nome e Tipo
+  # local nomeCarta
+  # declare -a local tiposCarta
+
+  # Adiciona na tabela carta_subtipo
+  # Nome e Subtipo
+  # local nomeCarta
+  # declare -a local subtiposCarta
+
+  # Adiciona na tabela carta_custodefinido
+  # Nome e Custo
+  # local nomeCarta
+  # declare -a local custosCarta
+  # Adiciona na tabela carta_custoindefinido
+  # Nome e Custo
+  # local nomeCarta
+  # declare -a local custosCarta
+
+  # Adiciona na tabela carta_habilidade
+  # Nome e Habilidade
+  # local nomeCarta
+  # declare -a local habilidadesCarta
 }
 
 addcarta
