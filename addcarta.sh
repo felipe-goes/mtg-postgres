@@ -382,9 +382,11 @@ function addcarta(){
   done
 
   # Adiciona na tabela carta_habilidade
-  # Nome e Habilidade
-  # local nomeCarta
-  # declare -a local habilidadesCarta
+  for i in "${!habilidadesCarta[@]}"
+  do
+    psql -u postgres -d mtg -c "insert into carta_habilidade (carta, habilidade) values (${nomeCarta}, ${habilidadesCarta[$i]});"
+  done
+
 }
 
 addcarta
