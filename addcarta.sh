@@ -285,7 +285,7 @@ function addcarta(){
     if [[ "${confirmaCampo^}" =~ ^S ]]
     then
       ## Obtém do banco de dados os nomes válidos de habilidade e converte em um array.
-      query=$( selectQuery "habilidade" "15" )
+      query=$( selectQuery "habilidade" "16" )
       readarray -d . -t habilidades <<< "$query"
       for i in "${!habilidades[@]}"
       do
@@ -299,7 +299,7 @@ function addcarta(){
           sed "s/Toque, Mortífero/Toque Mortífero/g" |
           sed "s/Golpe, Duplo/Golpe Duplo/g" |
           sed "s/Vínculo, com, a, Vida/Vínculo com a Vida/g" |
-          sed "s/Esquadrinhar,/Esquadrinhar/g"
+          sed "s/Persistir,/Persistir/g"
       )
       echo -e "${PINK}$textoColorido${NC}"
 
@@ -335,14 +335,14 @@ function addcarta(){
   # Insert na tabela carta_tipo
   for i in "${!tiposCarta[@]}"
   do
-    tiposCarta[$i]=$( echo "${tiposCarta[@]}" | sed "s/^ *//g" | sed "s/ *$//g" ) # Remove trailing spaces
+    tiposCarta[$i]=$( echo "${tiposCarta[$i]}" | sed "s/^ *//g" | sed "s/ *$//g" ) # Remove trailing spaces
     psql -U postgres -d mtg -c "insert into carta_tipo (carta, tipo) values ('${nomeCarta}', '${tiposCarta[$i]}');"
   done
 
   # Insert na tabela carta_subtipo
   for i in "${!subtiposCarta[@]}"
   do
-    subtiposCarta[$i]=$( echo "${subtiposCarta[@]}" | sed "s/^ *//g" | sed "s/ *$//g" ) # Remove trailing spaces
+    subtiposCarta[$i]=$( echo "${subtiposCarta[$i]}" | sed "s/^ *//g" | sed "s/ *$//g" ) # Remove trailing spaces
     psql -U postgres -d mtg -c "insert into carta_subtipo (carta, subtipo) values ('${nomeCarta}', '${subtiposCarta[$i]}');"
   done
 
@@ -354,7 +354,7 @@ function addcarta(){
     psql -U postgres -d mtg -c "insert into carta_custoindefinido (carta, custoindefinido) values ('${nomeCarta}', '${custoIncolor}');"
   fi
   # Adiciona na tabela custo_definido
-  for i in "${!custoCarta[@]}"
+  for i in "${!custosCarta[@]}"
   do
     local grupo=$(( $i + 1 ))
     local custoFloresta=$( echo "${custosCarta[$i]}" | sed "s/[/].[/].[/].[/].[/].$//g" )
@@ -392,7 +392,7 @@ function addcarta(){
   # Adiciona na tabela carta_habilidade
   for i in "${!habilidadesCarta[@]}"
   do
-    habilidadesCarta[$i]=$( echo "${habilidadesCarta[@]}" | sed "s/^ *//g" | sed "s/ *$//g" ) # Remove trailing spaces
+    habilidadesCarta[$i]=$( echo "${habilidadesCarta[$i]}" | sed "s/^ *//g" | sed "s/ *$//g" ) # Remove trailing spaces
     psql -U postgres -d mtg -c "insert into carta_habilidade (carta, habilidade) values ('${nomeCarta}', '${habilidadesCarta[$i]}');"
   done
 
