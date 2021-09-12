@@ -328,24 +328,58 @@ function addcarta(){
   fi
 
   # Insert na tabela carta_tipo
-  for item in "${tiposCarta[@]}"
+  for i in "${!tiposCarta[@]}"
   do
-    psql -u postgres -d mtg -c "insert into carta_tipo (carta, tipo) values (${nomeCarta}, ${item});"
+    psql -u postgres -d mtg -c "insert into carta_tipo (carta, tipo) values (${nomeCarta}, ${tiposCarta[$i]});"
   done
 
-  # Adiciona na tabela carta_subtipo
-  # Nome e Subtipo
-  # local nomeCarta
-  # declare -a local subtiposCarta
+  # Insert na tabela carta_subtipo
+  for i in "${!subtiposCarta[@]}"
+  do
+    psql -u postgres -d mtg -c "insert into carta_subtipo (carta, subtipo) values (${nomeCarta}, ${subtiposCarta[$i]});"
+  done
 
-  # Adiciona na tabela carta_custodefinido
-  # Nome e Custo
-  # local nomeCarta
-  # declare -a local custosCarta
   # Adiciona na tabela carta_custoindefinido
-  # Nome e Custo
-  # local nomeCarta
-  # declare -a local custosCarta
+  custoIncolor=$( echo "$custosCarta[0]" | sed "s/.[/].[/].[/].[/].[/]//g" )
+  if [[ "$custoIncolor" != "" ]]
+  then
+    psql -u postgres -d mtg -c "insert into carta_custoindefinido (carta, custoindefinido) values (${nomeCarta}, ${custoIncolor});"
+  fi
+  # Adiciona na tabela carta_custodefinido
+  for i in "${!custoCarta[@]}"
+  do
+    local grupo=$(( $i + 1 ))
+    local custoFloresta=$( echo "${custosCarta[$i]}" | sed "s/[/].[/].[/].[/].[/].$//g" )
+    local custoPantano=$( echo "${custosCarta[$i]}" | sed "s/^.[/]//g" | sed "s/[/].[/].[/].[/].$//g" )
+    local custoIlha=$( echo "${custosCarta[$i]}" | sed "s/^.[/].[/]//g" | sed "s/[/].[/].[/].$//g" )
+    local custoPlanicie=$( echo "${custosCarta[$i]}" | sed "s/^.[/].[/].[/]//g" | sed "s/[/].[/].$//g" )
+    local custoMontanha=$( echo "${custosCarta[$i]}" | sed "s/^.[/].[/].[/].[/]//g" | sed "s/[/].$//g" )
+
+    if [[ "$custoFloresta" != "0" ]]
+    then
+      psql -u postgres -d mtg -c "insert into carta_custodefinido (carta, grupo, mana, custo) values (${nomeCarta}, ${grupo}, Floresta, ${custoFloresta});"
+    fi
+
+    if [[ "$custoPantano" != "0" ]]
+    then
+      psql -u postgres -d mtg -c "insert into carta_custodefinido (carta, grupo, mana, custo) values (${nomeCarta}, ${grupo}, Pântano, ${custoPantano});"
+    fi
+
+    if [[ "$custoIlha" != "0" ]]
+    then
+      psql -u postgres -d mtg -c "insert into carta_custodefinido (carta, grupo, mana, custo) values (${nomeCarta}, ${grupo}, Ilha, ${custoIlha});"
+    fi
+
+    if [[ "$custoPlanicie" != "0" ]]
+    then
+      psql -u postgres -d mtg -c "insert into carta_custodefinido (carta, grupo, mana, custo) values (${nomeCarta}, ${grupo}, Planície, ${custoPlanicie});"
+    fi
+
+    if [[ "$custoMontanha" != "0" ]]
+    then
+      psql -u postgres -d mtg -c "insert into carta_custodefinido (carta, grupo, mana, custo) values (${nomeCarta}, ${grupo}, Montanha, ${custoMontanha});"
+    fi
+  done
 
   # Adiciona na tabela carta_habilidade
   # Nome e Habilidade
