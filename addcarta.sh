@@ -65,7 +65,8 @@ function validateArray(){
         validacao="verdadeiro"
         for i in "${!outputArray[@]}"
         do
-          if [[ "${outputArray[$i]}" == "$inputCarta" ]]
+          comparacao=$(echo "${outputArray[$i]}" | sed "s/\.//g")
+          if [[ "$comparacao" == "$inputCarta" ]]
           then
             validacao="falso"
           fi
@@ -79,7 +80,6 @@ function validateArray(){
             validacao="falso"
           fi
         else
-          echo -e "${PINK}Você já adicionou este ${mensagemLeitura}. O script seguirá para o próximo campo.${NC}"
           validacao="verdadeiro" # Força saída
         fi
         break
@@ -285,7 +285,7 @@ function addcarta(){
     if [[ "${confirmaCampo^}" =~ ^S ]]
     then
       ## Obtém do banco de dados os nomes válidos de habilidade e converte em um array.
-      query=$( selectQuery "habilidade" "16" )
+      query=$( selectQuery "habilidade" "20" )
       readarray -d . -t habilidades <<< "$query"
       for i in "${!habilidades[@]}"
       do
@@ -299,7 +299,8 @@ function addcarta(){
           sed "s/Toque, Mortífero/Toque Mortífero/g" |
           sed "s/Golpe, Duplo/Golpe Duplo/g" |
           sed "s/Vínculo, com, a, Vida/Vínculo com a Vida/g" |
-          sed "s/Persistir,/Persistir/g"
+          sed "s/Travessia, de, Floresta/Travessia de Floresta/g" |
+          sed "s/Reciclar,/Reciclar/g"
       )
       echo -e "${PINK}$textoColorido${NC}"
 
